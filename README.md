@@ -110,6 +110,7 @@ python start_app.py
 ## ⚠️ 风险提示
 
 本项目完全由Claude Vibe Coding + Minimax-M3模型生成，仅供个人使用！
+
 本软件仅供学习研究使用，**不构成任何投资建议**。投资有风险，入市需谨慎。
 
 ## 📄 License
