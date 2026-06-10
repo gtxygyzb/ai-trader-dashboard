@@ -1,0 +1,29 @@
+# ============ 敏感信息（绝对不能提交）============
+.env
+*.pem
+*.key
+
+# ============ 隐私数据 ============
+# 用户持仓、交易记录、AI 聊天历史（包含大量个人信息）
+history/
+# 用户投资画像（持仓、风格、目标）
+memory/
+# 项目内部需求说明（不适合公开）
+requirements.md
+
+# ============ 运行时产物 ============
+# 启动日志
+start.log
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.pyo
+# 编辑器临时文件
+tempCodeRunnerFile.py
+.vscode/
+.idea/
+.DS_Store
+# 缓存目录
+cache/
+# claude 项目本地
+.claude/
