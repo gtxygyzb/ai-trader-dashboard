@@ -7,6 +7,17 @@ import threading
 from flask import Flask, render_template, jsonify, request, Response, stream_with_context
 from flask_cors import CORS
 
+# === 编码安全：Windows GBK 控制台不能 print emoji/特殊字符 ===
+# 重写 stdout 让 print 自动降级（不会因为 emoji 抛 UnicodeEncodeError）
+def _safe_print_setup():
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+_safe_print_setup()
+
 import config
 from services import stock_service, news_service, aggregator, history_service, market_status, memory_service
 try:
@@ -128,7 +139,8 @@ def api_brief():
     def _do_generate():
         # 1. Generate brief
         aggregator.get_brief(force_refresh=force)
-        # 2. 读取当天 chat.jsonl + 简报，自动生成 memory summary 并写入 profile
+        # 2. 读取当天 chat.jsonl + 简报，自动生成 memory summary 写入 daily/
+        #    profile.md 由 consolidator 手动触发，不在这里追加
         try:
             today = time.strftime("%Y-%m-%d")
             chat_msgs = history_service.read_chat_log(today)
@@ -138,8 +150,7 @@ def api_brief():
                 summary = memory_service.summarize_day(today, chat_msgs=chat_msgs, brief_text=brief_text)
                 if summary:
                     memory_service.save_daily_summary(summary, date_str=today)
-                    memory_service.append_to_profile(f"\n## {today}\n{summary}\n")
-                    print(f"[brief] memory saved for {today}", flush=True)
+                    print(f"[brief] daily memory saved for {today} (use [CONSOLIDATE] button to merge into profile)", flush=True)
         except Exception as e:
             print(f"[brief] memory save error: {e}", flush=True)
         print("[brief] background generation done.", flush=True)
@@ -386,6 +397,40 @@ def api_api_key():
         "pay_as_you_go_label": "API",
         "active": "subscription",
     })
+
+
+@app.route("/api/memory/stats", methods=["GET"])
+def api_memory_stats():
+    """返回 profile.md 的健康检查（行数/字符/tokens/是否超限）"""
+    from services import memory_service
+    return jsonify(memory_service.get_profile_stats())
+
+
+@app.route("/api/memory/consolidate", methods=["POST"])
+def api_memory_consolidate():
+    """手动触发 memory 整理：读 daily/ → 调 AI → 重写 profile.md → 归档 daily/"""
+    from services import memory_consolidator
+    import threading
+
+    # 看请求是否带 force
+    force = False
+    try:
+        body = request.get_json(silent=True) or {}
+        force = bool(body.get("force", False))
+    except Exception:
+        pass
+
+    result_holder = {}
+
+    def _do():
+        try:
+            result_holder["data"] = memory_consolidator.consolidate(force=force)
+        except Exception as e:
+            result_holder["data"] = {"ok": False, "message": f"异常: {e}"}
+
+    # 同步执行（前端等结果），一般 10-30 秒
+    _do()
+    return jsonify(result_holder.get("data", {"ok": False, "message": "no result"}))
 
 
 @app.route("/api/cleanup_today", methods=["POST", "GET"])

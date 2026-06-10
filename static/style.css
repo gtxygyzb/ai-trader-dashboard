@@ -485,6 +485,21 @@ html, body {
 }
 .chat-header small { color: var(--text-mute); font-size: 11px; }
 
+.memory-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 18px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-mute);
+}
+.memory-status-bar .mem-label { font-weight: 600; }
+.memory-status-bar #memStats { flex: 1; font-family: 'Consolas', 'Monaco', monospace; }
+.memory-status-bar #memStats.over { color: #e74c3c; font-weight: 600; }
+.memory-status-bar #memStats.ok { color: #27ae60; }
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;

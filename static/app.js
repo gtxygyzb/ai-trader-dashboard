@@ -470,6 +470,7 @@ function bindEvents() {
       $('chatMessages').innerHTML = '';
       addMessage('assistant', '会话已清空。请继续提问～');
     };
+    $('consolidateBtn').onclick = consolidateMemory;
     $('regenBriefBtn').onclick = function() { loadBrief(true); };
     $('refreshAllBtn').onclick = function() {
       var old = $('refreshAllBtn').innerHTML;
@@ -582,6 +583,53 @@ async function loadChatHistory() {
   }
 }
 
+// ============ Memory 状态 + 整理按钮 ============
+async function loadMemoryStats() {
+  try {
+    var d = await fetchJson('/api/memory/stats');
+    var el = $('memStats');
+    if (!d || !d.exists) {
+      el.textContent = '（空）';
+      el.className = '';
+      return;
+    }
+    el.textContent = d.lines + ' 行 / ' + d.chars + ' 字符 / ~' + d.tokens + ' tokens';
+    el.className = d.over_limit ? 'over' : 'ok';
+    el.title = d.over_limit
+      ? '⚠️ 已超硬上限，建议点击"整理"按钮'
+      : '✓ 健康';
+  } catch (e) {
+    $('memStats').textContent = '加载失败';
+  }
+}
+
+async function consolidateMemory() {
+  var btn = $('consolidateBtn');
+  if (btn.disabled) return;
+  if (!confirm('确定整理 memory？\n\n- 读取 daily/ 最近 7 天\n- 调 AI 重新生成 profile.md（覆盖式）\n- 旧 daily 移到 archive/\n\n整个过程约 15-30 秒。')) return;
+  btn.disabled = true;
+  var origText = btn.textContent;
+  btn.textContent = '⏳ 整理中…';
+  try {
+    var d = await fetchJson('/api/memory/consolidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (d && d.ok) {
+      alert('✅ ' + (d.message || '整理完成') + '\n\n新 profile: ' + d.new_lines + ' 行 / ' + d.new_chars + ' 字符 / ~' + d.new_tokens + ' tokens');
+      loadMemoryStats();
+    } else {
+      alert('❌ ' + (d && d.message ? d.message : '整理失败'));
+    }
+  } catch (e) {
+    alert('❌ 整理失败: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
+}
+
 // ============ 初始化 ============
 async function init() {
   bindEvents();
@@ -591,6 +639,7 @@ async function init() {
   loadNews();
   loadBrief(false);
   loadApiKeyBadge();
+  loadMemoryStats();
   loadChatHistory();  // 恢复今日聊天记录
 
   setInterval(loadIndices, 60000);
